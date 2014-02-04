@@ -22,9 +22,15 @@ import static com.nostra13.universalimageloader.core.ImageLoader.LOG_IMAGE_SUBSA
 import java.io.IOException;
 import java.io.InputStream;
 
+import android.content.Context;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.BitmapFactory.Options;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
+import android.net.Uri;
+import android.provider.MediaStore.Images;
 
 import com.nostra13.universalimageloader.core.assist.ImageScaleType;
 import com.nostra13.universalimageloader.core.assist.ImageSize;
@@ -74,27 +80,92 @@ class ImageDecoder {
 	 * @throws IOException
 	 * @throws UnsupportedOperationException
 	 */
-	public Bitmap decode(ImageSize targetSize, ImageScaleType scaleType, ViewScaleType viewScaleType) throws IOException {
-		Options decodeOptions = getBitmapOptionsForImageDecoding(targetSize, scaleType, viewScaleType);
-		InputStream imageStream = imageDownloader.getStream(imageUri, displayOptions.getExtraForDownloader());
-		Bitmap subsampledBitmap;
-		try {
-			subsampledBitmap = BitmapFactory.decodeStream(imageStream, null, decodeOptions);
-		} finally {
-			IoUtils.closeSilently(imageStream);
-		}
-		if (subsampledBitmap == null) {
-			log(LOG_CANT_DECODE_IMAGE, imageUri);
-			return null;
-		}
+	//Nabia added argument context
+		public Bitmap decode(ImageSize targetSize, ImageScaleType scaleType, ViewScaleType viewScaleType, Context context) throws IOException {
+			
+			
+			int rotation = rotationForImage(Uri.parse(imageUri), context);
+			if(rotation == 90 || rotation == 270){
+				targetSize = new ImageSize(targetSize.getHeight(), targetSize.getWidth());
+			}
+			
+			
+			Options decodeOptions = getBitmapOptionsForImageDecoding(targetSize, scaleType, viewScaleType);
+			
+			
+			
+			
+			InputStream imageStream = imageDownloader.getStream(imageUri, displayOptions.getExtraForDownloader());
+			Bitmap subsampledBitmap;
+			try {
+				subsampledBitmap = BitmapFactory.decodeStream(imageStream, null, decodeOptions);
+			} finally {
+				IoUtils.closeSilently(imageStream);
+			}
+			if (subsampledBitmap == null) {
+				log(LOG_CANT_DECODE_IMAGE, imageUri);
+				return null;
+			}
 
-		// Scale to exact size if need
-		if (scaleType == ImageScaleType.EXACTLY || scaleType == ImageScaleType.EXACTLY_STRETCHED) {
-			subsampledBitmap = scaleImageExactly(subsampledBitmap, targetSize, scaleType, viewScaleType);
-		}
+			// Scale to exact size if need
+			if (scaleType == ImageScaleType.EXACTLY || scaleType == ImageScaleType.EXACTLY_STRETCHED) {
+				subsampledBitmap = scaleImageExactly(subsampledBitmap, targetSize, scaleType, viewScaleType);
+			}
+			
+			if(subsampledBitmap != null) {
+				if(rotation != 0) {
+					Matrix matrix = new Matrix();
+					matrix.preRotate(rotation);
 
-		return subsampledBitmap;
+					subsampledBitmap = Bitmap.createBitmap(
+							subsampledBitmap, 0, 0, subsampledBitmap.getWidth(), subsampledBitmap.getHeight(), matrix, true);
+				}
+			}
+
+			return subsampledBitmap;
 	}
+		
+	//Nabia: auxiliar functions for fix
+	private  int rotationForImage(Uri uri, Context context) {
+		if (uri.getScheme().equals("content")) {
+			String[] projection = { Images.ImageColumns.ORIENTATION };
+
+
+			Cursor c = context.getContentResolver().query(
+					uri, projection, null, null, null);
+			if (c.moveToFirst()) {
+				return c.getInt(0);
+			}
+			c.close();
+		} else if (uri.getScheme().equals("file")) {
+			try {
+				
+				ExifInterface exif = new ExifInterface(uri.getPath());
+					int rotation = (int)exifOrientationToDegrees(
+							exif.getAttributeInt(ExifInterface.TAG_ORIENTATION,
+									ExifInterface.ORIENTATION_NORMAL));
+					return rotation;
+				
+				
+				
+			} catch (IOException e) {
+				log("Error loading exif info from file: %s", e);
+			}
+		}
+		return 0;
+	}
+
+	private  int exifOrientationToDegrees(int exifOrientation) {
+		if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_90) {
+			return 90;
+		} else if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_180) {
+			return 180;
+		} else if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_270) {
+			return 270;
+		}
+		return 0;
+	}
+	//end Nabia auxiliar functions for fix
 
 	private Options getBitmapOptionsForImageDecoding(ImageSize targetSize, ImageScaleType scaleType, ViewScaleType viewScaleType) throws IOException {
 		Options decodeOptions = new Options();

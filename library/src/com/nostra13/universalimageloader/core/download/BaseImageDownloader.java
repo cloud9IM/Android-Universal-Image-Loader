@@ -137,7 +137,9 @@ public class BaseImageDownloader implements ImageDownloader {
 	 * @throws IOException if some I/O error occurs reading from file system
 	 */
 	protected InputStream getStreamFromFile(String imageUri, Object extra) throws IOException {
-		String filePath = Scheme.FILE.crop(imageUri);
+		//Nabia fix
+		String filePath = Uri.parse(Scheme.FILE.crop(imageUri)).getPath();
+		//String filePath = Scheme.FILE.crop(imageUri);
 		return new BufferedInputStream(new FileInputStream(filePath), BUFFER_SIZE);
 	}
 

@@ -267,7 +267,7 @@ final class LoadAndDisplayImageTask implements Runnable {
 		ImageDecoder decoder = new ImageDecoder(imageUri, getDownloader(), options);
 		decoder.setLoggingEnabled(loggingEnabled);
 		ViewScaleType viewScaleType = ViewScaleType.fromImageView(imageView);
-		return decoder.decode(targetSize, options.getImageScaleType(), viewScaleType);
+		return decoder.decode(targetSize, options.getImageScaleType(), viewScaleType, configuration.context);
 	}
 
 	private void saveImageOnDisc(File targetFile) throws IOException, URISyntaxException {
@@ -278,7 +278,7 @@ final class LoadAndDisplayImageTask implements Runnable {
 			ImageSize targetImageSize = new ImageSize(width, height);
 			ImageDecoder decoder = new ImageDecoder(uri, getDownloader(), options);
 			decoder.setLoggingEnabled(loggingEnabled);
-			Bitmap bmp = decoder.decode(targetImageSize, ImageScaleType.IN_SAMPLE_INT, ViewScaleType.FIT_INSIDE);
+			Bitmap bmp = decoder.decode(targetImageSize, ImageScaleType.IN_SAMPLE_INT, ViewScaleType.FIT_INSIDE, configuration.context);
 			if (bmp != null) {
 				OutputStream os = new BufferedOutputStream(new FileOutputStream(targetFile), BUFFER_SIZE);
 				boolean compressedSuccessfully = false;
